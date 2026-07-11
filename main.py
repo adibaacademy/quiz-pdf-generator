@@ -32,7 +32,9 @@ def get_gemini_content(data):
     """
 
     api_key = os.getenv("GEMINI_API_KEY")
-    url = f"[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=){api_key}"
+    api_key = os.getenv("GEMINI_API_KEY")
+    # নিচের লাইনটি লক্ষ্য করুন, এখানে কোনো ব্র্যাকেট নেই
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
     
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
     response = requests.post(url, json=payload)
