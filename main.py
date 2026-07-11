@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import Response
 from weasyprint import HTML, CSS
 from weasyprint.text.fonts import FontConfiguration
@@ -36,36 +36,43 @@ def get_gemini_content(data):
     
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
     response = requests.post(url, json=payload)
+    response_data = response.json()
     
-    html = response.json()['candidates'][0]['content']['parts'][0]['text']
-    
-    # এআই-এর অপ্রয়োজনীয় ট্যাগ এবং ল্যাটেক্সের $ চিহ্ন জোরপূর্বক মুছে ফেলা হচ্ছে
+    # এপিআই থেকে কোনো এরর এলে সেটি চেক করা হচ্ছে
+    if 'candidates' not in response_data:
+        print("GEMINI API ERROR:", response_data) # Render-এর লগে আসল এরর দেখাবে
+        raise ValueError(f"Gemini API Error: {response_data}")
+        
+    html = response_data['candidates'][0]['content']['parts'][0]['text']
     html = html.replace("```html", "").replace("```", "").replace("$", "").replace("\\", "").strip()
     return html
 
 @app.post("/generate-pdf")
 async def generate_pdf(data: dict):
-    html_content = get_gemini_content(data)
-    
-    # Google Fonts (Noto Sans Bengali) ব্যবহার করা হলো, তাই কোনো লোকাল ফন্টের দরকার নেই
-    css = CSS(string='''
-        @import url('[https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap](https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap)');
+    try:
+        html_content = get_gemini_content(data)
         
-        @page { size: A4; margin: 1cm; }
-        body { font-family: 'Noto Sans Bengali', sans-serif; font-size: 11pt; }
-        .column-container { column-count: 2; column-gap: 30px; }
-        .diagram-box { border: 2px solid #333; padding: 10px; margin: 10px 0; background: #fdfdfd; text-align: center; }
-        .answer-key { page-break-before: always; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        td, th { border: 1px solid #000; padding: 6px; text-align: center; }
-        h1, h2 { text-align: center; }
-    ''', font_config=font_config)
+        css = CSS(string='''
+            @import url('[https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap](https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap)');
+            
+            @page { size: A4; margin: 1cm; }
+            body { font-family: 'Noto Sans Bengali', sans-serif; font-size: 11pt; }
+            .column-container { column-count: 2; column-gap: 30px; }
+            .diagram-box { border: 2px solid #333; padding: 10px; margin: 10px 0; background: #fdfdfd; text-align: center; }
+            .answer-key { page-break-before: always; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            td, th { border: 1px solid #000; padding: 6px; text-align: center; }
+            h1, h2 { text-align: center; }
+        ''', font_config=font_config)
 
-    full_html = f'<div class="column-container">{html_content}</div>'
-    
-    # PDF তৈরি
-    pdf = HTML(string=full_html).write_pdf(
-        stylesheets=[css], font_config=font_config
-    )
+        full_html = f'<div class="column-container">{html_content}</div>'
+        
+        pdf = HTML(string=full_html).write_pdf(
+            stylesheets=[css], font_config=font_config
+        )
 
-    return Response(content=pdf, media_type="application/pdf")
+        return Response(content=pdf, media_type="application/pdf")
+        
+    except Exception as e:
+        # পাইথন ক্র্যাশ না করে সরাসরি এরর মেসেজটি cPanel-এ পাঠিয়ে দেবে
+        raise HTTPException(status_code=500, detail=str(e))
