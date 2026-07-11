@@ -9,14 +9,13 @@ app = FastAPI()
 font_config = FontConfiguration()
 
 def get_gemini_content(data):
-    prompt = f"""তুমি একজন প্রফেশনাল HTML কোডার এবং প্রশ্নকর্তা। নিচের তথ্যগুলো ব্যবহার করে একটি ডাবল-কলাম A4 সাইজের MCQ প্রশ্নপত্রের শুধুমাত্র <body> অংশের ভিতরের HTML কোড তৈরি করো। 
+    prompt = f"""তুমি একজন প্রফেশনাল HTML কোডার। নিচের তথ্যগুলো দিয়ে একটি A4 সাইজের ডাবল-কলাম MCQ প্রশ্নপত্রের HTML (শুধুমাত্র <body> এর ভেতরের অংশ) তৈরি করো। 
 
-    সতর্কতা (Failure is not an option - কঠোরভাবে পালনীয়):
-    ১. কোনোভাবেই তোমার নিজের সম্পর্কে কোনো কথা বা ব্যাখ্যামূলক কোনো শব্দ আউটপুটে লিখবে না। সরাসরি HTML ট্যাগ দিয়ে শুরু করবে।
-    ২. গাণিতিক সমীকরণ, একক, বা বিজ্ঞানের মাত্রা (Dimension - যেমন: [MLT-2]) লেখার জন্য কোনো অবস্থাতেই $, $$, বা LaTeX কোড ব্যবহার করবে না। সমীকরণের জন্য শুধুমাত্র সাধারণ টেক্সট এবং HTML-এর <sub> ও <sup> ট্যাগ ব্যবহার করবে।
-    ৩. প্রশ্নের নম্বর অবশ্যই ১ থেকে শুরু করে সঠিক সিরিয়ালে থাকবে।
-    ৪. চিত্র বা গ্রাফ বোঝাতে কোনো ব্র্যাকেট [ ] ব্যবহার করবে না। HTML <table> বা CSS border-যুক্ত <div> ব্যবহার করে পরিষ্কার বাংলায় চিত্রের বর্ণনা লিখবে।
-    ৫. আউটপুটটি শুধুমাত্র একটি প্রফেশনাল HTML কোড হবে, কোনো মার্কডাউন (```html) ব্যবহার করবে না।
+    কঠোর নির্দেশাবলি (Failure is not an option):
+    ১. কোনো অবস্থাতেই গণিতের সমীকরণ বা এককের জন্য $ বা $$ চিহ্ন, বা LaTeX/MathJax কোড (যেমন \sqrt, \frac, ^) ব্যবহার করবে না। সমীকরণের জন্য শুধু সাধারণ টেক্সট এবং HTML এর <sub>, <sup> ট্যাগ ব্যবহার করবে।
+    ২. প্রশ্নের নম্বর ১ থেকে শুরু করে সঠিক সিরিয়ালে থাকবে।
+    ৩. চিত্র/গ্রাফের জন্য কোনো ব্র্যাকেট বা অদ্ভুত টেক্সট আর্ট ব্যবহার করবে না। HTML <table> বা CSS border-যুক্ত <div> দিয়ে বক্স তৈরি করে তার ভেতর পরিষ্কার বাংলায় চিত্রের বর্ণনা লিখবে।
+    ৪. কোনো ব্যাখ্যামূলক টেক্সট বা ```html ট্যাগ দিবে না। সরাসরি HTML কোড দিবে।
 
     তথ্যসমূহ:
     ১. প্রতিষ্ঠান: {data.get('institute')}
@@ -39,33 +38,33 @@ def get_gemini_content(data):
     response = requests.post(url, json=payload)
     
     html = response.json()['candidates'][0]['content']['parts'][0]['text']
-    return html.replace("```html", "").replace("```", "").strip()
+    
+    # এআই-এর অপ্রয়োজনীয় ট্যাগ এবং ল্যাটেক্সের $ চিহ্ন জোরপূর্বক মুছে ফেলা হচ্ছে
+    html = html.replace("```html", "").replace("```", "").replace("$", "").replace("\\", "").strip()
+    return html
 
 @app.post("/generate-pdf")
 async def generate_pdf(data: dict):
     html_content = get_gemini_content(data)
     
-    # ফন্টের লোকেশনটি ডাইনামিক এবং অ্যাবসলুট করা হলো যাতে লিনাক্স সার্ভার সহজেই খুঁজে পায়
-    font_path = "file://" + os.path.abspath("fonts/Kalpurush.ttf").replace("\\", "/")
-    
-    css = CSS(string=f'''
-        @font-face {{
-            font-family: 'Kalpurush';
-            src: url('{font_path}');
-        }}
-        @page {{ size: A4; margin: 1cm; }}
-        body {{ font-family: 'Kalpurush', sans-serif; font-size: 11pt; }}
-        .column-container {{ column-count: 2; column-gap: 30px; }}
-        .diagram-box {{ border: 2px solid #333; padding: 10px; margin: 10px 0; background: #fdfdfd; text-align: center; }}
-        .answer-key {{ page-break-before: always; }}
-        table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-        td, th {{ border: 1px solid #000; padding: 6px; text-align: center; }}
-        h1, h2 {{ text-align: center; }}
+    # Google Fonts (Noto Sans Bengali) ব্যবহার করা হলো, তাই কোনো লোকাল ফন্টের দরকার নেই
+    css = CSS(string='''
+        @import url('[https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap](https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap)');
+        
+        @page { size: A4; margin: 1cm; }
+        body { font-family: 'Noto Sans Bengali', sans-serif; font-size: 11pt; }
+        .column-container { column-count: 2; column-gap: 30px; }
+        .diagram-box { border: 2px solid #333; padding: 10px; margin: 10px 0; background: #fdfdfd; text-align: center; }
+        .answer-key { page-break-before: always; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        td, th { border: 1px solid #000; padding: 6px; text-align: center; }
+        h1, h2 { text-align: center; }
     ''', font_config=font_config)
 
     full_html = f'<div class="column-container">{html_content}</div>'
     
-    pdf = HTML(string=full_html, base_url=os.getcwd()).write_pdf(
+    # PDF তৈরি
+    pdf = HTML(string=full_html).write_pdf(
         stylesheets=[css], font_config=font_config
     )
 
