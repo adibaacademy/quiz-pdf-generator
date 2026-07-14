@@ -5,36 +5,39 @@ from weasyprint import HTML, CSS
 from weasyprint.text.fonts import FontConfiguration
 import requests
 import traceback
+import re
 
 app = FastAPI()
 font_config = FontConfiguration()
 
 def get_gemini_content(data):
-    # প্রম্পটে একদম হুবহু PhysicsMCQ.pdf এর মডেল ফলো করার নির্দেশ দেওয়া হয়েছে
-    prompt = f"""তুমি একজন প্রফেশনাল HTML/CSS ডেভেলপার। সংযুক্ত মডেল প্রশ্নপত্রের হুবহু ডিজাইনে একটি MCQ প্রশ্নপত্রের সম্পূর্ণ HTML কোড (শুধুমাত্র <body> এর ভেতরের অংশ) তৈরি করো। 
-
-    নির্দেশাবলি:
-    ১. কোনো অবস্থাতেই $,$$, বা LaTeX/MathJax কোড ব্যবহার করবে না। সমীকরণের জন্য HTML এর <sub>, <sup> ট্যাগ ব্যবহার করবে।
-    ২. நேரடியாக HTML কোড দিবে, কোনো ```html ট্যাগ বা ব্যাখ্যামূলক টেক্সট দিবে না।
+    # প্রম্পটে অত্যন্ত কঠোর নির্দেশ দেওয়া হয়েছে
+    prompt = f"""তুমি একজন প্রফেশনাল HTML/CSS ডেভেলপার। 
+    
+    **অত্যন্ত জরুরি নির্দেশাবলি (অবশ্যই মানতে হবে):**
+    ১. কোনো অবস্থাতেই প্রশ্নের আগে 'সঠিক উত্তরটি চিহ্নিত করুন:' বা 'সঠিক উত্তরটি চিহ্নিত করুন' বা এই জাতীয় কোনো কথা লিখবে না। সরাসরি প্রশ্ন নম্বর দিয়ে শুরু করবে (যেমন: ১. কোনো গোলকের...)।
+    ২. কোনো অবস্থাতেই $,$$, বা LaTeX/MathJax কোড ব্যবহার করবে না। সমীকরণের জন্য HTML এর <sub>, <sup> ট্যাগ ব্যবহার করবে।
+    ৩. সরাসরি HTML কোড দিবে, কোনো ```html ট্যাগ বা ব্যাখ্যামূলক টেক্সট দিবে না।
     
     HTML এর গঠন (অবশ্যই হুবহু এই স্ট্রাকচার ফলো করবে):
-    <div class="header" style="position: relative; text-align: center; margin-bottom: 10px;">
-       <div style="position: absolute; left: 0; top: 0; font-weight: bold;">সময়ঃ {data.get('time')}</div>
-       <div style="position: absolute; right: 0; top: 0; font-weight: bold;">পূর্ণমানঃ {data.get('marks')}</div>
-       <h1 style="margin: 0; font-size: 18pt; font-weight: bold;">{data.get('institute')}</h1>
-       <p style="margin: 2px 0; font-size: 12pt;">{data.get('address', 'আটোয়ারী, পঞ্চগড়')}</p>
-       <h2 style="margin: 5px 0 2px 0; font-size: 14pt; font-weight: 600;">{data.get('class')} শ্রেণির {data.get('exam')}</h2>
-       <h3 style="margin: 3px 0; font-size: 13pt;">বিষয়ঃ {data.get('subject')}</h3>
+    <div class="header">
+       <div class="top-row">
+           <span>সময়ঃ {data.get('time')}</span>
+           <span>পূর্ণমানঃ {data.get('marks')}</span>
+       </div>
+       <h1>{data.get('institute')}</h1>
+       <p class="address">{data.get('address', 'আটোয়ারী, পঞ্চগড়')}</p>
+       <h2>{data.get('class')} শ্রেণির {data.get('exam')}</h2>
+       <h3>বিষয়ঃ {data.get('subject')}</h3>
     </div>
     
-    <p class="instruction" style="text-align: justify; font-size: 10.5pt; margin-bottom: 15px;">
+    <div class="instruction">
        [দ্রষ্টব্যঃ প্রশ্নপত্রে কোন প্রকার দাগ/চিহ্ন দেওয়া যাবে না। সরবরাহকৃত বহু নির্বাচনী অভীক্ষার উত্তরপত্রের ক্রমিক নম্বরের বিপরীতে প্রদত্ত বর্ণ সম্বলিত বৃত্ত সমূহ হতে সঠিক/ সর্বোৎকৃষ্ট উত্তরের বৃত্তটি বল পয়েন্ট কলম দ্বারা সম্পূর্ণ ভরাট কর। প্রতিটি প্রশ্নের মান ১]
-    </p>
+    </div>
     
     <div class="questions-container">
-       <!-- প্রশ্নগুলো এখানে আসবে -->
        <div class="question">
-          <p><b>১. [প্রশ্ন]</b></p>
+          <p><b>১. [সরাসরি প্রশ্ন হবে, কোনো বাড়তি কথা নয়]</b></p>
           <div class="options">
              <span>(ক) [অপশন ১]</span>
              <span>(খ) [অপশন ২]</span><br>
@@ -42,7 +45,7 @@ def get_gemini_content(data):
              <span>(ঘ) [অপশন ৪]</span>
           </div>
        </div>
-       <!-- উদ্দীপক থাকলে <div class="uddipak">...</div> ব্যবহার করবে -->
+       <!-- এভাবে বাকি প্রশ্নগুলো দিবে -->
     </div>
     """
 
@@ -60,14 +63,20 @@ def get_gemini_content(data):
         raise Exception(f"Invalid API response: {response_data}")
         
     html = response_data['candidates'][0]['content']['parts'][0]['text']
-    return html.replace("```html", "").replace("```", "").replace("$", "").replace("\\", "").strip()
+    
+    # পাইথন ফিল্টার: এআই যদি ভুল করেও অপ্রয়োজনীয় টেক্সট দেয়, পাইথন তা মুছে ফেলবে
+    clean_html = html.replace("```html", "").replace("```", "").replace("$", "").replace("\\", "")
+    clean_html = re.sub(r'<p>.*?সঠিক উত্তরটি চিহ্নিত করুন.*?</p>', '', clean_html)
+    clean_html = clean_html.replace("সঠিক উত্তরটি চিহ্নিত করুন:", "").replace("সঠিক উত্তরটি চিহ্নিত করুন", "")
+    
+    return clean_html.strip()
 
 @app.post("/generate-pdf")
 async def generate_pdf(data: dict):
     try:
         html_content = get_gemini_content(data)
         
-        # CSS এ পেজ নম্বর (পৃষ্ঠা 1, পৃষ্ঠা 2) এবং অন্যান্য স্টাইলিং যুক্ত করা হয়েছে
+        # PhysicsMCQ মডেল অনুযায়ী পারফেক্ট CSS
         css = CSS(string='''
             @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap');
             
@@ -85,6 +94,20 @@ async def generate_pdf(data: dict):
                 font-size: 11pt; 
                 color: #000;
             }
+            .header { text-align: center; margin-bottom: 15px; }
+            .top-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 11pt; margin-bottom: -10px; }
+            .header h1 { margin: 5px 0 0 0; font-size: 16pt; font-weight: bold; }
+            .header p.address { margin: 0; font-size: 11pt; }
+            .header h2 { margin: 5px 0; font-size: 13pt; font-weight: bold; }
+            .header h3 { margin: 0; font-size: 12pt; font-weight: bold; }
+            
+            .instruction { 
+                text-align: justify; 
+                font-size: 10pt; 
+                margin-bottom: 15px; 
+                line-height: 1.4; 
+            }
+            
             .questions-container { 
                 column-count: 2; 
                 column-gap: 35px; 
