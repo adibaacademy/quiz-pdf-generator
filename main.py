@@ -31,7 +31,7 @@ def get_gemini_content(data):
     """
 
     api_key = os.getenv("GEMINI_API_KEY")
-    url = f"[https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=](https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=){api_key}"
+    url = f"[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-latest:generateContent?key=](https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=){api_key}"
     
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
     response = requests.post(url, json=payload)
