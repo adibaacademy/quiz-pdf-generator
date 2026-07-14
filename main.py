@@ -56,20 +56,15 @@ async def generate_pdf(data: dict):
         html_content = get_gemini_content(data)
         
         # Google Fonts ব্যবহার করে পিডিএফ রেন্ডারিং
-        css = CSS(string='''
-            @import url('[https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap](https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap)');
+       css = CSS(string='''
+            @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap');
+            
             @page { size: A4; margin: 1cm; }
             body { font-family: 'Noto Sans Bengali', sans-serif; font-size: 11pt; }
             .column-container { column-count: 2; column-gap: 30px; }
+            .diagram-box { border: 2px solid #333; padding: 10px; margin: 10px 0; background: #fdfdfd; text-align: center; }
+            .answer-key { page-break-before: always; }
             table { width: 100%; border-collapse: collapse; margin-top: 10px; }
             td, th { border: 1px solid #000; padding: 6px; text-align: center; }
+            h1, h2 { text-align: center; }
         ''', font_config=font_config)
-
-        full_html = f'<div class="column-container">{html_content}</div>'
-        pdf = HTML(string=full_html).write_pdf(stylesheets=[css], font_config=font_config)
-
-        return Response(content=pdf, media_type="application/pdf")
-        
-    except Exception as e:
-        traceback.print_exc() # লগ-এ আসল এরর দেখাবে
-        raise HTTPException(status_code=500, detail=str(e))
