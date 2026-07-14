@@ -53,7 +53,7 @@ async def generate_pdf(data: dict):
         
         # এখানে ফন্টের লিংকটি একদম পরিষ্কার করে দেওয়া হয়েছে, কোনো ব্র্যাকেট নেই
         css = CSS(string='''
-            @import url('[https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap](https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap)');
+            @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap');
             
             @page { size: A4; margin: 1cm; }
             body { font-family: 'Noto Sans Bengali', sans-serif; font-size: 11pt; }
